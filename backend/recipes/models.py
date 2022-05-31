@@ -40,3 +40,13 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         'Время готовки',
         validators=[MinValueValidator(1)])
+
+
+class IngredientRecipe(models.Model):
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    amount = models.PositiveSmallIntegerField(
+        'Количество', validators=[MinValueValidator(1)])
+
+    def __str__(self):
+        return f'{self.ingredient} {self.recipe}'
