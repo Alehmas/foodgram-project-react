@@ -33,7 +33,7 @@ class Ingredient(models.Model):
 
 class Recipe(models.Model):
     ingredients = models.ManyToManyField(
-        Ingredient, verbose_name='ингридиенты')
+        Ingredient, verbose_name='ингридиенты', through='IngredientRecipe')
     tags = models.ManyToManyField(Tag, verbose_name='Тэг')
     name = models.CharField('Название рецепта', max_length=200, db_index=True)
     text = models.TextField('Текст')
@@ -49,4 +49,4 @@ class IngredientRecipe(models.Model):
         'Количество', validators=[MinValueValidator(1)])
 
     def __str__(self):
-        return f'{self.ingredient} {self.recipe}'
+        return self.name
