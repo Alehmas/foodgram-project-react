@@ -12,4 +12,4 @@ class Command(BaseCommand):
         with open('../data/test_ingredients.csv', 'r', encoding='UTF-8') as f:
             csv_reader = csv.reader(f, delimiter=',')
             for row in csv_reader:
-                Ingredient.objects.create(name=row[0], measurement_unit=row[1], amount=1)
+                Ingredient.objects.create(name=row[0], measurement_unit=row[1])
