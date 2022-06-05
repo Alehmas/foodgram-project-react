@@ -1,4 +1,3 @@
-from urllib import request
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -13,16 +12,14 @@ class Tag(models.Model):
         verbose_name = 'Тэг'
         verbose_name_plural = 'Тэги'
 
-    def __str__(self):
-        return self.name
+    #def __str__(self):
+    #    return self.id
 
 
 class Ingredient(models.Model):
     name = models.CharField(
         'Название ингредиента', max_length=200, db_index=True)
     measurement_unit = models.CharField('Единица измерения', max_length=50)
-    amount = models.PositiveSmallIntegerField(
-        'Количество', default=0)
 
     class Meta:
         verbose_name = 'Ингредиент'
@@ -51,10 +48,13 @@ class Recipe(models.Model):
 
 
 class IngredientRecipe(models.Model):
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(
+        Ingredient, on_delete=models.CASCADE, related_name='ingredient_to_recipe')
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE, related_name='recipe_to_ingredient')
     amount = models.PositiveSmallIntegerField(
         'Количество', validators=[MinValueValidator(1)])
-
+    
     def __str__(self):
-        return self.ingredient
+        return f'{self.ingredient} {self.amount}'
+

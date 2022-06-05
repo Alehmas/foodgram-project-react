@@ -1,16 +1,19 @@
 from rest_framework import serializers
 from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
+from django.shortcuts import get_object_or_404
 
 
 class IngredientSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Ingredient
-        fields = ('id', 'name', 'measurement_unit')
+        model = IngredientRecipe
+        fields = ('__all__')
 
 
-class IngredientSerializerRecipe(serializers.ModelSerializer):
+class IngredientRecipeSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=False)
+    
     class Meta:
-        model = Ingredient
+        model = IngredientRecipe
         fields = ('id', 'amount')
 
 
@@ -22,7 +25,7 @@ class TagSerializer(serializers.ModelSerializer):
 
 class RecipeSerializerGet(serializers.ModelSerializer):
     tags = TagSerializer(many=True)
-    ingredients = IngredientSerializer(many=True)
+    ingredients = IngredientSerializer(many=True, source='recipe_to_ingredient')
 
     class Meta:
         model = Recipe
@@ -30,22 +33,28 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = IngredientSerializerRecipe(many=True)
-
+    ingredients = IngredientRecipeSerializer(many=True, source='recipe_to_ingredient')
+    tags = serializers.SlugRelatedField(
+        many=True, slug_field='id',
+        queryset=Tag.objects.all()
+    )
+    
     class Meta:
         model = Recipe
-        fields = ('tags', 'ingredients', 'name', 'text', 'cooking_time')
-    
+        fields = ('ingredients', 'tags', 'name', 'text', 'cooking_time')
+        depth = 1
+
     def create(self, validated_data):
-        ingredients = validated_data.pop('ingredients')
-        print(ingredients)
-        print(type(validated_data))
-        print(validated_data)
-        recipe = Recipe.objects.set(**validated_data)
+        ingredients = validated_data.pop('recipe_to_ingredient', {})
+        tags = validated_data.pop('tags')
+        recipe = Recipe.objects.create(**validated_data)
+
         for ingredient in ingredients:
-            print(ingredient.id)
-            current_ingredient, status = Ingredient.objects.get_or_create(**ingredient)
+            amount = ingredient.pop('amount')
+            id = ingredient.pop('id')
+            current_ingredient = get_object_or_404(Ingredient, id=id)
             IngredientRecipe.objects.create(
-                ingredient=current_ingredient, recipe=recipe
+                ingredient=current_ingredient, recipe=recipe, amount=amount
             )
+        recipe.tags.set(tags)
         return recipe
