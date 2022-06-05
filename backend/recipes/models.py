@@ -25,8 +25,8 @@ class Ingredient(models.Model):
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
 
-    def __str__(self):
-        return self.name
+    #def __str__(self):
+    #    return self.name
 
 
 class Recipe(models.Model):
@@ -43,8 +43,8 @@ class Recipe(models.Model):
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
-    def __str__(self):
-        return self.name
+    #def __str__(self):
+    #    return self.name
 
 
 class IngredientRecipe(models.Model):
@@ -55,6 +55,6 @@ class IngredientRecipe(models.Model):
     amount = models.PositiveSmallIntegerField(
         'Количество', validators=[MinValueValidator(1)])
     
-    def __str__(self):
-        return f'{self.ingredient} {self.amount}'
+    #def __str__(self):
+    #    return f'{self.ingredient} {self.amount}'
 

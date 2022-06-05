@@ -1,19 +1,34 @@
+from re import I
 from rest_framework import serializers
 from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
 from django.shortcuts import get_object_or_404
 
 
 class IngredientSerializer(serializers.ModelSerializer):
+    amount = serializers.SerializerMethodField(source='ingredient_to_recipe')
+
+    def get_amount(self, obj):
+        print(dir(obj.ingredient_to_recipe)) # остановился здесь
+        amount = obj.id
+        return amount
+
     class Meta:
-        model = IngredientRecipe
-        fields = ('__all__')
+        model = Ingredient
+        fields = ('id', 'name', 'measurement_unit', 'amount')
 
 
 class IngredientRecipeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=False)
+    amount = serializers.IntegerField()
     
+    def to_representation(self, instance):
+        return {'id': instance.ingredient_id,
+                'name': instance.ingredient.name,
+                'measurement_unit': instance.ingredient.measurement_unit,
+                'amount': instance.amount}
+
     class Meta:
-        model = IngredientRecipe
+        model = Ingredient
         fields = ('id', 'amount')
 
 
@@ -25,7 +40,8 @@ class TagSerializer(serializers.ModelSerializer):
 
 class RecipeSerializerGet(serializers.ModelSerializer):
     tags = TagSerializer(many=True)
-    ingredients = IngredientSerializer(many=True, source='recipe_to_ingredient')
+    ingredients = IngredientSerializer(
+        many=True)
 
     class Meta:
         model = Recipe
@@ -33,7 +49,8 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = IngredientRecipeSerializer(many=True, source='recipe_to_ingredient')
+    ingredients = IngredientRecipeSerializer(
+        many=True, source='recipe_to_ingredient')
     tags = serializers.SlugRelatedField(
         many=True, slug_field='id',
         queryset=Tag.objects.all()
@@ -41,8 +58,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Recipe
-        fields = ('ingredients', 'tags', 'name', 'text', 'cooking_time')
-        depth = 1
+        fields = ('tags', 'ingredients', 'name', 'text', 'cooking_time')
 
     def create(self, validated_data):
         ingredients = validated_data.pop('recipe_to_ingredient', {})
