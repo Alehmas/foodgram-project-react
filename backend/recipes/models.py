@@ -12,8 +12,8 @@ class Tag(models.Model):
         verbose_name = 'Тэг'
         verbose_name_plural = 'Тэги'
 
-    #def __str__(self):
-    #    return self.id
+    def __str__(self):
+        return self.id
 
 
 class Ingredient(models.Model):
@@ -25,13 +25,13 @@ class Ingredient(models.Model):
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
 
-    #def __str__(self):
-    #    return self.name
+    def __str__(self):
+        return self.name
 
 
 class Recipe(models.Model):
     ingredients = models.ManyToManyField(
-        Ingredient, verbose_name='ингридиенты', through='IngredientRecipe')
+        Ingredient, verbose_name='ингридиенты', through='IngredientAmount')
     tags = models.ManyToManyField(Tag, verbose_name='Тэг')
     name = models.CharField('Название рецепта', max_length=200, db_index=True)
     text = models.TextField('Текст')
@@ -43,18 +43,27 @@ class Recipe(models.Model):
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
-    #def __str__(self):
-    #    return self.name
+    def __str__(self):
+        return self.name
 
 
-class IngredientRecipe(models.Model):
+class IngredientAmount(models.Model):
     ingredient = models.ForeignKey(
-        Ingredient, on_delete=models.CASCADE, related_name='ingredient_to_recipe')
+        Ingredient, on_delete=models.CASCADE, verbose_name='Ингредиент',
+        related_name='ingredient_to_recipe')
     recipe = models.ForeignKey(
-        Recipe, on_delete=models.CASCADE, related_name='recipe_to_ingredient')
+        Recipe, on_delete=models.CASCADE, verbose_name='Рецепт',
+        related_name='recipe_to_ingredient')
     amount = models.PositiveSmallIntegerField(
-        'Количество', validators=[MinValueValidator(1)])
+        'Количество', default=1, validators=[MinValueValidator(1), ])
     
-    #def __str__(self):
-    #    return f'{self.ingredient} {self.amount}'
+    class Meta:
+        verbose_name = 'Ингредиенты рецепта'
+        verbose_name_plural = verbose_name
+        constraints = [
+            models.UniqueConstraint(fields=['ingredient', 'recipe'],
+                                    name='unique_ingredient')
+        ]
 
+    def __str__(self):
+        return f'{self.ingredient} в {self.recipe}'

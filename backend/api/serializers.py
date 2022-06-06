@@ -1,34 +1,27 @@
-from re import I
 from rest_framework import serializers
-from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
+from recipes.models import Ingredient, IngredientAmount, Recipe, Tag
 from django.shortcuts import get_object_or_404
 
 
 class IngredientSerializer(serializers.ModelSerializer):
-    amount = serializers.SerializerMethodField(source='ingredient_to_recipe')
-
-    def get_amount(self, obj):
-        return int(
-            IngredientRecipe.objects.filter(ingredient_id=obj.id)[0].amount)
-
     class Meta:
         model = Ingredient
-        fields = ('id', 'name', 'measurement_unit', 'amount')
+        fields = ('id', 'name', 'measurement_unit')
 
 
-class IngredientRecipeSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(read_only=False)
+class IngredientAmountSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
     amount = serializers.IntegerField()
-    
+
+    class Meta:
+        model = IngredientAmount
+        fields = ('id', 'amount')
+  
     def to_representation(self, instance):
         return {'id': instance.ingredient_id,
                 'name': instance.ingredient.name,
                 'measurement_unit': instance.ingredient.measurement_unit,
                 'amount': instance.amount}
-
-    class Meta:
-        model = Ingredient
-        fields = ('id', 'amount')
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -39,8 +32,8 @@ class TagSerializer(serializers.ModelSerializer):
 
 class RecipeSerializerGet(serializers.ModelSerializer):
     tags = TagSerializer(many=True)
-    ingredients = IngredientSerializer(
-        many=True)
+    ingredients = IngredientAmountSerializer(
+        many=True, source='recipe_to_ingredient')
 
     class Meta:
         model = Recipe
@@ -48,12 +41,8 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = IngredientRecipeSerializer(
+    ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
-    #tags = serializers.SlugRelatedField(
-    #   many=True, slug_field='id',
-    #   queryset=Tag.objects.all()
-    #)
     
     class Meta:
         model = Recipe
@@ -68,8 +57,15 @@ class RecipeSerializer(serializers.ModelSerializer):
             amount = ingredient.pop('amount')
             id = ingredient.pop('id')
             current_ingredient = get_object_or_404(Ingredient, id=id)
-            IngredientRecipe.objects.create(
+            IngredientAmount.objects.create(
                 ingredient=current_ingredient, recipe=recipe, amount=amount
             )
         recipe.tags.set(tags)
         return recipe
+
+    def to_representation(self, instance):
+        representation = super(
+            RecipeSerializer, self).to_representation(instance)
+        representation['tags'] = TagSerializer(
+            instance.tags, many=True, required=False).data
+        return representation
