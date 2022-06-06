@@ -8,9 +8,8 @@ class IngredientSerializer(serializers.ModelSerializer):
     amount = serializers.SerializerMethodField(source='ingredient_to_recipe')
 
     def get_amount(self, obj):
-        print(dir(obj.ingredient_to_recipe)) # остановился здесь
-        amount = obj.id
-        return amount
+        return int(
+            IngredientRecipe.objects.filter(ingredient_id=obj.id)[0].amount)
 
     class Meta:
         model = Ingredient
@@ -51,10 +50,10 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 class RecipeSerializer(serializers.ModelSerializer):
     ingredients = IngredientRecipeSerializer(
         many=True, source='recipe_to_ingredient')
-    tags = serializers.SlugRelatedField(
-        many=True, slug_field='id',
-        queryset=Tag.objects.all()
-    )
+    #tags = serializers.SlugRelatedField(
+    #   many=True, slug_field='id',
+    #   queryset=Tag.objects.all()
+    #)
     
     class Meta:
         model = Recipe
