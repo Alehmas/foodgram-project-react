@@ -31,13 +31,14 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializerGet(serializers.ModelSerializer):
+    # id = serializers.ReadOnlyField()
     tags = TagSerializer(many=True)
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
 
     class Meta:
         model = Recipe
-        fields = ('tags', 'ingredients', 'name', 'text', 'cooking_time')
+        fields = ('id', 'tags', 'ingredients', 'name', 'text', 'cooking_time')
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -46,7 +47,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Recipe
-        fields = ('tags', 'ingredients', 'name', 'text', 'cooking_time')
+        fields = ('id', 'tags', 'ingredients', 'name', 'text', 'cooking_time')
 
     def create(self, validated_data):
         ingredients = validated_data.pop('recipe_to_ingredient', {})
@@ -66,6 +67,8 @@ class RecipeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super(
             RecipeSerializer, self).to_representation(instance)
+        #print(representation.__dir__)
+        # representation['id'] = instance.id
         representation['tags'] = TagSerializer(
             instance.tags, many=True, required=False).data
         return representation
