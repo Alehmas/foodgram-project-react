@@ -30,14 +30,31 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'color', 'slug')
 
 
+class ImageConversion(serializers.Field):
+    def to_representation(self, value):
+        return value
+
+    def to_internal_value(self, data):
+        try:
+            decode = BytesIO(base64.b64decode(data))
+            image = Image.open(decode)
+        except ValueError:
+            raise serializers.ValidationError(
+                'Картинка должна быть кодирована в base64'
+            )
+        return image
+
+
 class RecipeSerializerGet(serializers.ModelSerializer):
     tags = TagSerializer(many=True)
+    image = ImageConversion()
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
 
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'ingredients', 'name', 'text', 'cooking_time')
+        fields = ('id', 'tags', 'ingredients', 'name',
+                  'image', 'text', 'cooking_time')
 
 
 class RecipeSerializer(serializers.ModelSerializer):

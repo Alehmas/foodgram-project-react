@@ -33,6 +33,8 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         Ingredient, verbose_name='ингридиенты', through='IngredientAmount')
     tags = models.ManyToManyField(Tag, verbose_name='Тэг')
+    image = models.ImageField(
+        upload_to='api/images/recipes/', verbose_name='Картинка')
     name = models.CharField('Название рецепта', max_length=200, db_index=True)
     text = models.TextField('Текст')
     cooking_time = models.PositiveSmallIntegerField(
