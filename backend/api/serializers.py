@@ -1,6 +1,11 @@
+import base64
+import io
+
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from PIL import Image
 from rest_framework import serializers
 from recipes.models import Ingredient, IngredientAmount, Recipe, Tag
-from django.shortcuts import get_object_or_404
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -36,18 +41,18 @@ class ImageConversion(serializers.Field):
 
     def to_internal_value(self, data):
         try:
-            decode = BytesIO(base64.b64decode(data))
+            decode = io.BytesIO(base64.b64decode(data))
             image = Image.open(decode)
         except ValueError:
             raise serializers.ValidationError(
                 'Картинка должна быть кодирована в base64'
             )
-        return image
+        filetype = image.format #Contains the extension
+        image.save(content=data , name="img"+filetype)
 
 
 class RecipeSerializerGet(serializers.ModelSerializer):
     tags = TagSerializer(many=True)
-    image = ImageConversion()
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
 
@@ -60,10 +65,12 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 class RecipeSerializer(serializers.ModelSerializer):
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
-    
+    image = ImageConversion()
+
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'ingredients', 'name', 'text', 'cooking_time')
+        fields = ('id', 'tags', 'ingredients', 'name',
+                  'image', 'text', 'cooking_time')
 
     def crate_ingredients(self, recipe, ingredients):
         for ingredient in ingredients:
