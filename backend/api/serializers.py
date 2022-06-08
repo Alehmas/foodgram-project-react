@@ -1,6 +1,8 @@
 import base64
 import io
 
+from django.core.files.base import ContentFile
+
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from PIL import Image
@@ -37,18 +39,24 @@ class TagSerializer(serializers.ModelSerializer):
 
 class ImageConversion(serializers.Field):
     def to_representation(self, value):
-        return value
+        print(value)
+        return value.url
 
     def to_internal_value(self, data):
         try:
-            decode = io.BytesIO(base64.b64decode(data))
-            image = Image.open(decode)
+            format, imgstr = data.split(';base64,')
+            ext = format.split('/')[-1]
+            # decode = io.BytesIO(base64.b64decode(imgstr))
+            # image = Image.open(decode)
+            file_name = "image." + ext
+            # image.save(file_name)
+            data = ContentFile(base64.b64decode(imgstr), name = file_name)
         except ValueError:
             raise serializers.ValidationError(
                 'Картинка должна быть кодирована в base64'
             )
-        filetype = image.format #Contains the extension
-        image.save(content=data , name="img"+filetype)
+        print(settings.MEDIA_ROOT)
+        return data
 
 
 class RecipeSerializerGet(serializers.ModelSerializer):
