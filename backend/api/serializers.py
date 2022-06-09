@@ -1,11 +1,16 @@
 import base64
 
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from rest_framework.validators import UniqueValidator
 from recipes.models import Ingredient, IngredientAmount, Recipe, Tag
+
+User = get_user_model()
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -107,3 +112,55 @@ class RecipeSerializer(serializers.ModelSerializer):
         representation['tags'] = TagSerializer(
             instance.tags, many=True, required=False).data
         return representation
+
+
+class AuthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('username', 'email')
+        qs = User.objects.all()
+        extra_kwargs = {
+            'username': {
+                'validators': [
+                    UniqueValidator(
+                        queryset=qs
+                    )
+                ]
+            },
+            'email': {
+                'validators': [
+                    UniqueValidator(
+                        queryset=qs
+                    )
+                ]
+            }
+        }
+
+    def validate_username(self, username):
+        if username == 'me':
+            raise ValidationError('"me" is not valid username')
+        return username
+
+
+class UserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('email', 'id','username', 'first_name',
+                  'last_name')
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('email', 'id','username', 'first_name',
+                  'last_name')
+
+
+class TokenSerializer(serializers.ModelSerializer):
+    confirmation_code = serializers.CharField(allow_blank=False)
+
+    class Meta:
+        model = User
+        fields = ('username', 'email')
