@@ -14,7 +14,7 @@ class Tag(models.Model):
         verbose_name_plural = 'Тэги'
 
     def __str__(self):
-        return self.id
+        return self.name
 
 
 class Ingredient(models.Model):
@@ -34,7 +34,7 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         Ingredient, verbose_name='Список ингредиентов',
         through='IngredientAmount')
-    tags = models.ManyToManyField('Список id тегов', Tag, verbose_name='Тэг')
+    tags = models.ManyToManyField(Tag, verbose_name='Список id тегов')
     author = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='recipe')
     image = models.ImageField(

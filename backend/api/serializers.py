@@ -1,11 +1,9 @@
 import base64
-import io
 
 from django.core.files.base import ContentFile
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
-from PIL import Image
 from rest_framework import serializers
 from recipes.models import Ingredient, IngredientAmount, Recipe, Tag
 
@@ -46,10 +44,7 @@ class ImageConversion(serializers.Field):
         try:
             format, imgstr = data.split(';base64,')
             ext = format.split('/')[-1]
-            # decode = io.BytesIO(base64.b64decode(imgstr))
-            # image = Image.open(decode)
             file_name = "image." + ext
-            # image.save(file_name)
             data = ContentFile(base64.b64decode(imgstr), name = file_name)
         except ValueError:
             raise serializers.ValidationError(
