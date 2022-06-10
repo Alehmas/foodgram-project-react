@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from djoser.serializers import UserCreateSerializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueValidator
@@ -66,18 +67,19 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'ingredients', 'name',
+        fields = ('id', 'tags', 'ingredients', 'author', 'name',
                   'image', 'text', 'cooking_time')
 
 
 class RecipeSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
     image = ImageConversion()
 
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'ingredients', 'name',
+        fields = ('id', 'tags', 'ingredients', 'author', 'name',
                   'image', 'text', 'cooking_time')
 
     def crate_ingredients(self, recipe, ingredients):
@@ -114,10 +116,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         return representation
 
 
-class AuthSerializer(serializers.ModelSerializer):
+class AuthSerializer(UserCreateSerializer):
     class Meta:
         model = User
-        fields = ('username', 'email')
+        fields = ('email', 'username', 'first_name',
+                  'last_name', 'password')
         qs = User.objects.all()
         extra_kwargs = {
             'username': {
@@ -141,14 +144,13 @@ class AuthSerializer(serializers.ModelSerializer):
             raise ValidationError('"me" is not valid username')
         return username
 
-
+"""
 class UserSerializer(serializers.ModelSerializer):
-    role = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ('email', 'id','username', 'first_name',
-                  'last_name')
+        fields = ('email', 'username', 'first_name',
+                  'last_name', 'password')
 
 
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -159,8 +161,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class TokenSerializer(serializers.ModelSerializer):
-    confirmation_code = serializers.CharField(allow_blank=False)
-
     class Meta:
         model = User
-        fields = ('username', 'email')
+        fields = ('email', 'password')
+
+    def create(self, validated_data):
+        print(validated_data.__dict__)
+"""
