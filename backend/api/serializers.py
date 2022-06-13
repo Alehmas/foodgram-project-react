@@ -8,19 +8,109 @@ from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.validators import UniqueValidator
+from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 from recipes.models import Ingredient, IngredientAmount, Recipe, Tag
+from users.models import Follow
 
 User = get_user_model()
 
 
+class UserSerializer(UserCreateSerializer):
+    """Сериализация для пользователей"""
+    id = serializers.ReadOnlyField()
+
+    class Meta:
+        model = User
+        fields = ('email', 'id', 'username', 'first_name',
+                  'last_name', 'is_subscribed', 'password')
+        qs = User.objects.all()
+        extra_kwargs = {
+            'username': {
+                'validators': [
+                    UniqueValidator(
+                        queryset=qs
+                    )
+                ]
+            },
+            'email': {
+                'validators': [
+                    UniqueValidator(
+                        queryset=qs
+                    )
+                ]
+            }
+        }
+
+    def validate_username(self, username):
+        if username == 'me':
+            raise ValidationError('"me" is not valid username')
+        return username
+
+
+class RecipeSubscribeSerializer(serializers.ModelSerializer):
+    """Сериализация поля рецепт в при получении подписчиков"""
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
+
+
+class SubscribeSerializer(serializers.ModelSerializer):
+    """Сериализация для списка подписчиков"""
+    recipes = RecipeSubscribeSerializer(
+        many=True, read_only=True, source='recipe')
+    recipes_count = serializers.SerializerMethodField()
+    #is_subscribed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ('email', 'id', 'username', 'first_name',
+                  'last_name', 'is_subscribed', 'recipes', 'recipes_count')
+
+    def get_recipes_count(self, obj):
+        return obj.recipe.count()
+    """
+    def get_is_subscribed(self, obj):
+        print(self)
+        print(obj)
+        if self.user.is_authenticated:
+            if Follow.objects.filter(user=self.user.id, following=id):
+                return True
+    """
+
+
+class FollowSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        fields = ('user', 'following')
+        model = Follow
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Follow.objects.all(),
+                fields=['user', 'following']
+            )
+        ]
+
+    def validate(self, data):
+        if self.context['request'].user == data['following']:
+            raise serializers.ValidationError(
+                'Подписка на себя невозможна!')
+        return data
+    
+    def to_representation(self, instance):
+        follow = get_object_or_404(User, id=instance.following_id)
+        representation = SubscribeSerializer(follow).data
+        return representation
+    
+
 class IngredientSerializer(serializers.ModelSerializer):
+    """Сериализация для ингредиентов"""
     class Meta:
         model = Ingredient
         fields = ('id', 'name', 'measurement_unit')
 
 
 class IngredientAmountSerializer(serializers.ModelSerializer):
+    """Сериализация поля игредиентов при получении рецепта(ов)"""
     id = serializers.IntegerField()
     amount = serializers.IntegerField()
 
@@ -36,14 +126,15 @@ class IngredientAmountSerializer(serializers.ModelSerializer):
 
 
 class TagSerializer(serializers.ModelSerializer):
+    """Сериализация для тегов"""
     class Meta:
         model = Tag
         fields = ('id', 'name', 'color', 'slug')
 
 
 class ImageConversion(serializers.Field):
+    """Сериализация для поля изображения в рецепте"""
     def to_representation(self, value):
-        print(value)
         return value.url
 
     def to_internal_value(self, data):
@@ -61,9 +152,11 @@ class ImageConversion(serializers.Field):
 
 
 class RecipeSerializerGet(serializers.ModelSerializer):
+    """Сериализация получения рецепта(ов)"""
     tags = TagSerializer(many=True)
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
+    author = UserSerializer(required=False, read_only=True)
 
     class Meta:
         model = Recipe
@@ -72,7 +165,8 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    """Сериализация для создания и обновления рецепта"""
+    author = UserSerializer(required=False, read_only=True)
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
     image = ImageConversion()
@@ -115,56 +209,3 @@ class RecipeSerializer(serializers.ModelSerializer):
             instance.tags, many=True, required=False).data
         return representation
 
-
-class AuthSerializer(UserCreateSerializer):
-    class Meta:
-        model = User
-        fields = ('email', 'username', 'first_name',
-                  'last_name', 'password')
-        qs = User.objects.all()
-        extra_kwargs = {
-            'username': {
-                'validators': [
-                    UniqueValidator(
-                        queryset=qs
-                    )
-                ]
-            },
-            'email': {
-                'validators': [
-                    UniqueValidator(
-                        queryset=qs
-                    )
-                ]
-            }
-        }
-
-    def validate_username(self, username):
-        if username == 'me':
-            raise ValidationError('"me" is not valid username')
-        return username
-
-"""
-class UserSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = User
-        fields = ('email', 'username', 'first_name',
-                  'last_name', 'password')
-
-
-class AdminUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('email', 'id','username', 'first_name',
-                  'last_name')
-
-
-class TokenSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('email', 'password')
-
-    def create(self, validated_data):
-        print(validated_data.__dict__)
-"""
