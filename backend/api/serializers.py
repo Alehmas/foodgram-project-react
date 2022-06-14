@@ -2,15 +2,13 @@ import base64
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
-
-from django.conf import settings
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
-from recipes.models import (Ingredient, IngredientAmount,
-                            Recipe, Shopping, Tag, Favorite)
+from recipes.models import (Favorite, Ingredient, IngredientAmount, Recipe,
+                            Shopping, Tag)
 from users.models import Follow
 
 User = get_user_model()
@@ -57,7 +55,7 @@ class UserSerializer(UserCreateSerializer):
 
 
 class RecipeSmallSerializer(serializers.ModelSerializer):
-    """Сериализация поля рецепт в при получении подписчиков и 
+    """Сериализация поля рецепт в при получении подписчиков и
     при добавлении в избранное"""
     class Meta:
         model = Recipe
@@ -128,7 +126,7 @@ class IngredientAmountSerializer(serializers.ModelSerializer):
     class Meta:
         model = IngredientAmount
         fields = ('id', 'amount')
-  
+
     def to_representation(self, instance):
         return {'id': instance.ingredient_id,
                 'name': instance.ingredient.name,
@@ -153,12 +151,11 @@ class ImageConversion(serializers.Field):
             format, imgstr = data.split(';base64,')
             ext = format.split('/')[-1]
             file_name = "image." + ext
-            data = ContentFile(base64.b64decode(imgstr), name=file_name)
+            return ContentFile(base64.b64decode(imgstr), name=file_name)
         except ValueError:
             raise serializers.ValidationError(
                 'Картинка должна быть кодирована в base64'
             )
-        return data
 
 
 class RecipeSerializerGet(serializers.ModelSerializer):
@@ -232,7 +229,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         self.crate_ingredients(recipe, ingredients)
         recipe.tags.set(tags)
         return recipe
-    
+
     def update(self, instance, validated_data):
         ingredients = validated_data.pop('recipe_to_ingredient', {})
         tags = validated_data.pop('tags')
@@ -241,7 +238,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         self.crate_ingredients(recipe, ingredients)
         recipe.tags.set(tags)
         return recipe
-    
+
     def to_representation(self, instance):
         representation = super(
             RecipeSerializer, self).to_representation(instance)
@@ -255,7 +252,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('user', 'recipe')
         model = Favorite
-    
+
     def to_representation(self, instance):
         request = self.context.get('request')
         recipe = get_object_or_404(Recipe, id=instance.recipe_id)
@@ -269,7 +266,7 @@ class ShoppingSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('user', 'recipe')
         model = Shopping
-    
+
     def to_representation(self, instance):
         request = self.context.get('request')
         recipe = get_object_or_404(Recipe, id=instance.recipe_id)

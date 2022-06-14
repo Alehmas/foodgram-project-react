@@ -5,18 +5,20 @@ from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from recipes.models import Ingredient, Favorite, Recipe, Shopping, Tag
+from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
-from .serializers import (
-    IngredientSerializer, FollowSerializer, FavoriteSerializer,
-    RecipeSerializer, RecipeSerializerGet, ShoppingSerializer,
-    SubscribeSerializer, TagSerializer)
+
+from .permissions import IsAuthor
+from .serializers import (FavoriteSerializer, FollowSerializer,
+                          IngredientSerializer, RecipeSerializer,
+                          RecipeSerializerGet, ShoppingSerializer,
+                          SubscribeSerializer, TagSerializer)
 
 User = get_user_model()
 
 
 class UserViewSet(DjoserViewSet):
-    """Вывод списка,создание и др для пользователей при работе с Djoser + 
+    """Вывод списка,создание и др для пользователей при работе с Djoser +
     создание, удаление и вывод списка подписчиков"""
     queryset = User.objects.all()
 
@@ -34,7 +36,8 @@ class UserViewSet(DjoserViewSet):
             following = int(self.kwargs['id'])
             user = self.request.user.id
             data.update({'following': following, 'user': user})
-            serializer = FollowSerializer(data=data, context={'request': request})
+            serializer = FollowSerializer(
+                data=data, context={'request': request})
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -49,7 +52,8 @@ class UserViewSet(DjoserViewSet):
                     }, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=False)
+    @action(detail=False,
+            permission_classes=[permissions.IsAuthenticated, IsAuthor])
     def subscriptions(self, request):
         sub_user = User.objects.filter(following__user=self.request.user)
         serializer = SubscribeSerializer(
@@ -92,7 +96,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return context
 
     @action(detail=True, methods=['post', 'delete'],
-            permission_classes=[permissions.IsAuthenticated])
+            permission_classes=[permissions.IsAuthenticated, IsAuthor])
     def favorite(self, request, pk=None):
         if request.method == 'POST':
             already_favorite = Favorite.objects.filter(
@@ -150,131 +154,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     'errors': 'Рецепт отсутствует в списке покупок'
                     }, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
-        
-    """
-            serializer = FollowSerializer(data=data, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        if request.method == 'DELETE':
-            follow = Follow.objects.filter(
-                user=self.request.user.id, following=int(self.kwargs['id']))
-            if follow.exists():
-                follow.delete()
-            else:
-                return Response({
-                    'errors': 'Данная подписка отсутвует'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    """
-
-    
-    """
-    class SubscribeViewSet(mixins.ListModelMixin,
-                       mixins.CreateModelMixin,
-                       mixins.DestroyModelMixin,
-                       viewsets.GenericViewSet):
-    
-    def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return SubscribeSerializer
-        return FollowSerializer
-
-    def get_queryset(self):
-        return User.objects.filter(following__user=self.request.user)
-
-    @action(detail=True, methods=['post', 'delete'],
-            permission_classes=[permissions.IsAuthenticated])
-    def subscribe(self, request, pk=None):
-        if request.method == 'POST':
-            data = request.data.copy()
-            following = int(self.kwargs['pk'])
-            user = self.request.user.id
-            data.update({'following': following, 'user': user})
-            serializer = self.get_serializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        if request.method == 'DELETE':
-            follow = Follow.objects.filter(
-                user=self.request.user.id, following=int(self.kwargs['pk']))
-            if follow.exists():
-                follow.delete()
-            else:
-                raise ValidationError('Данная подписка отсутвует')
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
-    def get_serializer_context(self):
-        context = super(SubscribeViewSet, self).get_serializer_context()
-        context.update(
-            {'request': self.request})
-        return context
-    
-    
-    @action(detail=True, methods=['delete'], url_path='subscribe')
-    def destroy(self, request, *args, **kwargs):
-        # following = get_object_or_404(User, id=)
-        follow = Follow.objects.filter(
-            user=self.request.user.id, following=int(kwargs['user_id']))
-        if follow.exist():
-            follow.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
-    def get_serializer_context(self):
-        context = super(SubscribeViewSet, self).get_serializer_context()
-        following = int(self.kwargs['user_id'])
-        user = self.request.user.id
-        #follow = User.objects.filter(id=following)[0]
-        context.update(
-            {'following': following, 'user': user})
-        return context
-    
-    def perform_create(self, serializer):
-        user = self.request.user.id
-        following = int(self.kwargs['user_id'])
-        if user == following:
-            raise ValidationError('Подписаться на самого себя нельзя')
-        #else:
-        #    Follow.objects.get_or_create(user=user, following=following)
-        #follow = User.objects.filter(id=following)
-        serializer.save()
-    
-    def perform_create(self, serializer):
-        user = self.request.user.id
-        following = int(self.kwargs['user_id'])
-        if user == following:
-            raise ValidationError('Подписаться на самого себя нельзя')
-        Follow.objects.get_or_create(user=user, following=following)
-        serializer.save()
-    
-
-
-    class FollowViewSet(mixins.ListModelMixin,
-                    mixins.CreateModelMixin,
-                    mixins.DestroyModelMixin,
-                    viewsets.GenericViewSet):
-    serializer_class = FollowSerializer
-    # permission_classes = (permissions.IsAuthenticated,)
-    # filter_backends = (filters.SearchFilter,)
-    # search_fields = ('following__username',)
-
-    def get_queryset(self):
-        return Follow.objects.filter(user__following=self.request.user)
-
-    def create(self, request, **kwargs):
-        data = request.data.copy()
-        # following = get_object_or_404(User, id=int(kwargs['user_id']))
-        data.update({'following': int(kwargs['user_id']), 'user': self.request.user.id})
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def destroy(self, request, **kwargs):
-        following = get_object_or_404(User, id=int(kwargs['user_id']))
-        follow = Follow.objects.filter(user=self.request.user, following=following)
-        if follow.exist():
-            follow.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    """
-
