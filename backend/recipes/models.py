@@ -44,6 +44,8 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         'Время приготовления (в минутах)',
         validators=[MinValueValidator(1)])
+    is_favorited = models.BooleanField(default=False)
+    is_in_shopping_cart = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Рецепт'
@@ -84,6 +86,20 @@ class Favorite(models.Model):
     class Meta:
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
+
+    def __str__(self):
+        return f'{self.user.username} on {self.recipe.name}'
+
+
+class Shopping(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='byer')
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE, related_name='shopping_recipe')
+
+    class Meta:
+        verbose_name = 'Список покупок'
+        verbose_name_plural = 'Списки покупок'
 
     def __str__(self):
         return f'{self.user.username} on {self.recipe.name}'

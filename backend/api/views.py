@@ -1,4 +1,3 @@
-from multiprocessing import context
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserViewSet
@@ -6,13 +5,12 @@ from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from recipes.models import Ingredient, Favorite, Recipe, Tag
+from recipes.models import Ingredient, Favorite, Recipe, Shopping, Tag
 from users.models import Follow
 from .serializers import (
     IngredientSerializer, FollowSerializer, FavoriteSerializer,
-    RecipeSerializer, RecipeSerializerGet, SubscribeSerializer,
-    TagSerializer)
-
+    RecipeSerializer, RecipeSerializerGet, ShoppingSerializer,
+    SubscribeSerializer, TagSerializer)
 
 User = get_user_model()
 
@@ -87,7 +85,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    
+    def get_serializer_context(self):
+        context = super(RecipeViewSet, self).get_serializer_context()
+        context.update(
+            {'request': self.request})
+        return context
+
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
     def favorite(self, request, pk=None):
@@ -102,7 +105,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             recipe = int(self.kwargs['pk'])
             user = self.request.user.id
             data.update({'recipe': recipe, 'user': user})
-            serializer = FavoriteSerializer(data=data, context={'request': request})
+            serializer = FavoriteSerializer(
+                data=data, context={'request': request})
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -116,7 +120,37 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     'errors': 'Рецепт отсутствует в избранном'
                     }, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=[permissions.IsAuthenticated])
+    def shopping_cart(self, request, pk=None):
+        if request.method == 'POST':
+            already_cart = Shopping.objects.filter(
+                user=self.request.user.id, recipe=int(self.kwargs['pk']))
+            if already_cart.exists():
+                return Response({
+                    'errors': 'Рецепт уже в списке покупок'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            data = request.data.copy()
+            recipe = int(self.kwargs['pk'])
+            user = self.request.user.id
+            data.update({'recipe': recipe, 'user': user})
+            serializer = ShoppingSerializer(
+                data=data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method == 'DELETE':
+            favorite = Shopping.objects.filter(
+                user=self.request.user.id, recipe=int(self.kwargs['pk']))
+            if favorite.exists():
+                favorite.delete()
+            else:
+                return Response({
+                    'errors': 'Рецепт отсутствует в списке покупок'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
     """
             serializer = FollowSerializer(data=data, context={'request': request})
             serializer.is_valid(raise_exception=True)
