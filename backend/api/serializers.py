@@ -1,4 +1,5 @@
 import base64
+from multiprocessing import context
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -41,7 +42,7 @@ class UserSerializer(UserCreateSerializer):
                 ]
             }
         }
-    
+
     def get_is_subscribed(self, obj):
         user = self.context.get('request').user
         if user.is_authenticated:
@@ -76,7 +77,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
     def get_recipes_count(self, obj):
         return obj.recipe.count()
-    
+
     def get_is_subscribed(self, obj):
         user = self.context.get('request').user
         if user.is_authenticated:
@@ -86,7 +87,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
 
 class FollowSerializer(serializers.ModelSerializer):
-    
+    """Сериализация при создании подписчиков"""
     class Meta:
         fields = ('user', 'following')
         model = Follow
@@ -102,12 +103,14 @@ class FollowSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Подписка на себя невозможна!')
         return data
-    
+
     def to_representation(self, instance):
+        request = self.context.get('request')
         follow = get_object_or_404(User, id=instance.following_id)
-        representation = SubscribeSerializer(follow).data
-        return representation
-    
+        representation = SubscribeSerializer(
+            follow, context={'request': request})
+        return representation.data
+
 
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализация для ингредиентов"""

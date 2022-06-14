@@ -1,3 +1,4 @@
+from multiprocessing import context
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserViewSet
@@ -15,10 +16,46 @@ from .serializers import (
 User = get_user_model()
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    """Вывод списка пользователей"""
+class UserViewSet(DjoserViewSet):
+    """Вывод списка,создание и др для пользователей при работе с Djoser + 
+    создание, удаление и вывод списка подписчиков"""
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=[permissions.IsAuthenticated])
+    def subscribe(self, request, id=None):
+        if request.method == 'POST':
+            already_follow = Follow.objects.filter(
+                user=self.request.user.id, following=int(self.kwargs['id']))
+            if already_follow.exists():
+                return Response({
+                    'errors': 'Вы уже подписаны на данного пользователя'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            data = request.data.copy()
+            following = int(self.kwargs['id'])
+            user = self.request.user.id
+            data.update({'following': following, 'user': user})
+            serializer = FollowSerializer(data=data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method == 'DELETE':
+            follow = Follow.objects.filter(
+                user=self.request.user.id, following=int(self.kwargs['id']))
+            if follow.exists():
+                follow.delete()
+            else:
+                return Response({
+                    'errors': 'Данная подписка отсутвует'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False)
+    def subscriptions(self, request):
+        sub_user = User.objects.filter(following__user=self.request.user)
+        serializer = SubscribeSerializer(
+            sub_user, context={'request': request}, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class IngredientViewSet(mixins.ListModelMixin,
@@ -48,19 +85,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
-
+    """
     def get_serializer_context(self):
         context = super(RecipeViewSet, self).get_serializer_context()
         context.update(
             {'request': self.request})
         return context
-
-
-class SubscribeViewSet(mixins.ListModelMixin,
+    """
+    
+    """
+    class SubscribeViewSet(mixins.ListModelMixin,
                        mixins.CreateModelMixin,
                        mixins.DestroyModelMixin,
                        viewsets.GenericViewSet):
-    """Вывод списка подписок"""
+    
     def get_serializer_class(self):
         if self.request.method == 'GET':
             return SubscribeSerializer
@@ -96,7 +134,7 @@ class SubscribeViewSet(mixins.ListModelMixin,
             {'request': self.request})
         return context
     
-    """
+    
     @action(detail=True, methods=['delete'], url_path='subscribe')
     def destroy(self, request, *args, **kwargs):
         # following = get_object_or_404(User, id=)
