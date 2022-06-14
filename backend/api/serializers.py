@@ -10,7 +10,7 @@ from djoser.serializers import UserCreateSerializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
-from recipes.models import Ingredient, IngredientAmount, Recipe, Tag
+from recipes.models import Ingredient, IngredientAmount, Recipe, Tag, Favorite
 from users.models import Follow
 
 User = get_user_model()
@@ -56,8 +56,9 @@ class UserSerializer(UserCreateSerializer):
         return username
 
 
-class RecipeSubscribeSerializer(serializers.ModelSerializer):
-    """Сериализация поля рецепт в при получении подписчиков"""
+class RecipeSmallSerializer(serializers.ModelSerializer):
+    """Сериализация поля рецепт в при получении подписчиков и 
+    при добавлении в избранное"""
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
@@ -65,7 +66,7 @@ class RecipeSubscribeSerializer(serializers.ModelSerializer):
 
 class SubscribeSerializer(serializers.ModelSerializer):
     """Сериализация для списка подписчиков"""
-    recipes = RecipeSubscribeSerializer(
+    recipes = RecipeSmallSerializer(
         many=True, read_only=True, source='recipe')
     recipes_count = serializers.SerializerMethodField()
     is_subscribed = serializers.SerializerMethodField()
@@ -218,3 +219,17 @@ class RecipeSerializer(serializers.ModelSerializer):
             instance.tags, many=True, required=False).data
         return representation
 
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    """Сериализация при добавления рецепта в избранные"""
+    class Meta:
+        fields = ('user', 'recipe')
+        model = Favorite
+    
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        recipe = get_object_or_404(Recipe, id=instance.recipe_id)
+        representation = RecipeSmallSerializer(
+            recipe, context={'request': request})
+        return representation.data
+    

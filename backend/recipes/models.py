@@ -62,7 +62,7 @@ class IngredientAmount(models.Model):
         related_name='recipe_to_ingredient')
     amount = models.PositiveSmallIntegerField(
         'Количество', default=1, validators=[MinValueValidator(1), ])
-    
+
     class Meta:
         verbose_name = 'Ингредиенты рецепта'
         verbose_name_plural = verbose_name
@@ -73,3 +73,17 @@ class IngredientAmount(models.Model):
 
     def __str__(self):
         return f'{self.ingredient} в {self.recipe}'
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='owner')
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE, related_name='favorite_recipe')
+
+    class Meta:
+        verbose_name = 'Избранное'
+        verbose_name_plural = 'Избранное'
+
+    def __str__(self):
+        return f'{self.user.username} on {self.recipe.name}'

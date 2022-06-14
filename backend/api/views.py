@@ -6,11 +6,12 @@ from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from recipes.models import Ingredient, Recipe, Tag
+from recipes.models import Ingredient, Favorite, Recipe, Tag
 from users.models import Follow
 from .serializers import (
-    IngredientSerializer, FollowSerializer, RecipeSerializer,
-    RecipeSerializerGet, SubscribeSerializer, TagSerializer, UserSerializer)
+    IngredientSerializer, FollowSerializer, FavoriteSerializer,
+    RecipeSerializer, RecipeSerializerGet, SubscribeSerializer,
+    TagSerializer)
 
 
 User = get_user_model()
@@ -85,13 +86,54 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=[permissions.IsAuthenticated])
+    def favorite(self, request, pk=None):
+        if request.method == 'POST':
+            already_favorite = Favorite.objects.filter(
+                user=self.request.user.id, recipe=int(self.kwargs['pk']))
+            if already_favorite.exists():
+                return Response({
+                    'errors': 'Рецепт уже в избранном'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            data = request.data.copy()
+            recipe = int(self.kwargs['pk'])
+            user = self.request.user.id
+            data.update({'recipe': recipe, 'user': user})
+            serializer = FavoriteSerializer(data=data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method == 'DELETE':
+            favorite = Favorite.objects.filter(
+                user=self.request.user.id, recipe=int(self.kwargs['pk']))
+            if favorite.exists():
+                favorite.delete()
+            else:
+                return Response({
+                    'errors': 'Рецепт отсутствует в избранном'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
     """
-    def get_serializer_context(self):
-        context = super(RecipeViewSet, self).get_serializer_context()
-        context.update(
-            {'request': self.request})
-        return context
+            serializer = FollowSerializer(data=data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method == 'DELETE':
+            follow = Follow.objects.filter(
+                user=self.request.user.id, following=int(self.kwargs['id']))
+            if follow.exists():
+                follow.delete()
+            else:
+                return Response({
+                    'errors': 'Данная подписка отсутвует'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     """
+
     
     """
     class SubscribeViewSet(mixins.ListModelMixin,

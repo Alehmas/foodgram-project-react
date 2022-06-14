@@ -37,11 +37,10 @@ class Follow(models.Model):
             models.UniqueConstraint(
                 fields=['user', 'following'], name='unique_following')
         ]
-    """
+
     def __str__(self):
         return f'{self.user.username} on {self.following.username}'
-    """
-    
+
     def clean(self):
         if self.user == self.following:
             raise ValidationError('Подписаться на самого себя нельзя')
