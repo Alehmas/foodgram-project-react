@@ -18,6 +18,7 @@ User = get_user_model()
 class UserSerializer(UserCreateSerializer):
     """Сериализация для пользователей"""
     id = serializers.ReadOnlyField()
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -40,6 +41,13 @@ class UserSerializer(UserCreateSerializer):
                 ]
             }
         }
+    
+    def get_is_subscribed(self, obj):
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return Follow.objects.filter(
+                user=user.id, following=obj.id).exists()
+        return False
 
     def validate_username(self, username):
         if username == 'me':
@@ -59,7 +67,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
     recipes = RecipeSubscribeSerializer(
         many=True, read_only=True, source='recipe')
     recipes_count = serializers.SerializerMethodField()
-    #is_subscribed = serializers.SerializerMethodField()
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -68,14 +76,13 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
     def get_recipes_count(self, obj):
         return obj.recipe.count()
-    """
+    
     def get_is_subscribed(self, obj):
-        print(self)
-        print(obj)
-        if self.user.is_authenticated:
-            if Follow.objects.filter(user=self.user.id, following=id):
-                return True
-    """
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return Follow.objects.filter(
+                user=user.id, following=obj.id).exists()
+        return False
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -142,12 +149,11 @@ class ImageConversion(serializers.Field):
             format, imgstr = data.split(';base64,')
             ext = format.split('/')[-1]
             file_name = "image." + ext
-            data = ContentFile(base64.b64decode(imgstr), name = file_name)
+            data = ContentFile(base64.b64decode(imgstr), name=file_name)
         except ValueError:
             raise serializers.ValidationError(
                 'Картинка должна быть кодирована в base64'
             )
-        print(settings.MEDIA_ROOT)
         return data
 
 
@@ -160,7 +166,7 @@ class RecipeSerializerGet(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'ingredients', 'author', 'name',
+        fields = ('id', 'tags', 'author', 'ingredients', 'name',
                   'image', 'text', 'cooking_time')
 
 
@@ -173,7 +179,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'ingredients', 'author', 'name',
+        fields = ('id', 'tags', 'author', 'ingredients', 'name',
                   'image', 'text', 'cooking_time')
 
     def crate_ingredients(self, recipe, ingredients):

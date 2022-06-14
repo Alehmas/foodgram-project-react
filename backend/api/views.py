@@ -1,9 +1,9 @@
 from django.contrib.auth import get_user_model
-from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserViewSet
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from recipes.models import Ingredient, Recipe, Tag
 from users.models import Follow
@@ -21,13 +21,17 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
 
-class IngredientViewSet(viewsets.ModelViewSet):
+class IngredientViewSet(mixins.ListModelMixin,
+                        mixins.RetrieveModelMixin,
+                        viewsets.GenericViewSet):
     """Вывод списка игредиентов или одного ингредиента"""
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
 
 
-class TagViewSet(viewsets.ModelViewSet):
+class TagViewSet(mixins.ListModelMixin,
+                 mixins.RetrieveModelMixin,
+                 viewsets.GenericViewSet):
     """Вывод списка тегов или одного тега"""
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
@@ -36,7 +40,6 @@ class TagViewSet(viewsets.ModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     """Отображение рецепта(ов) при Get, Post, Patch, Del"""
     queryset = Recipe.objects.all()
-    # serializer_class = RecipeSerializer
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -46,10 +49,25 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
+    def get_serializer_context(self):
+        context = super(RecipeViewSet, self).get_serializer_context()
+        context.update(
+            {'request': self.request})
+        return context
 
-class UserFollowViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
-                        viewsets.GenericViewSet):
-    serializer_class = FollowSerializer
+
+class SubscribeViewSet(mixins.ListModelMixin,
+                       mixins.CreateModelMixin,
+                       mixins.DestroyModelMixin,
+                       viewsets.GenericViewSet):
+    """Вывод списка подписок"""
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return SubscribeSerializer
+        return FollowSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(following__user=self.request.user)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
@@ -64,27 +82,21 @@ class UserFollowViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
             self.perform_create(serializer)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         if request.method == 'DELETE':
-            follow = Follow.objects.get(
+            follow = Follow.objects.filter(
                 user=self.request.user.id, following=int(self.kwargs['pk']))
-            if follow.exist():  # остановился здесь !!!!!!!!!!!!
+            if follow.exists():
                 follow.delete()
+            else:
+                raise ValidationError('Данная подписка отсутвует')
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class SubscribeViewSet( mixins.ListModelMixin, viewsets.GenericViewSet):
-    """Вывод списка подписок"""
-    serializer_class = SubscribeSerializer
-    """
-    def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return SubscribeSerializer
-        return FollowSerializer
-    """
-    def get_queryset(self):
-        return User.objects.filter(following__user=self.request.user)
-    """
     
+    def get_serializer_context(self):
+        context = super(SubscribeViewSet, self).get_serializer_context()
+        context.update(
+            {'request': self.request})
+        return context
     
+    """
     @action(detail=True, methods=['delete'], url_path='subscribe')
     def destroy(self, request, *args, **kwargs):
         # following = get_object_or_404(User, id=)
@@ -120,10 +132,10 @@ class SubscribeViewSet( mixins.ListModelMixin, viewsets.GenericViewSet):
             raise ValidationError('Подписаться на самого себя нельзя')
         Follow.objects.get_or_create(user=user, following=following)
         serializer.save()
-    """
+    
 
 
-class FollowViewSet(mixins.ListModelMixin,
+    class FollowViewSet(mixins.ListModelMixin,
                     mixins.CreateModelMixin,
                     mixins.DestroyModelMixin,
                     viewsets.GenericViewSet):
@@ -150,5 +162,5 @@ class FollowViewSet(mixins.ListModelMixin,
         if follow.exist():
             follow.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
+    """
 

@@ -125,6 +125,8 @@ DJOSER = {
     'HIDE_USERS': False,
     'SERIALIZERS': {
          'user_create': 'api.serializers.UserSerializer',
+         'user': 'api.serializers.UserSerializer',
+         'current_user': 'api.serializers.UserSerializer',
     },
     'PERMISSIONS': {
         'user_list': ['rest_framework.permissions.IsAuthenticated'],
