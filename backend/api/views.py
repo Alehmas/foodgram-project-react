@@ -12,7 +12,7 @@ from .permissions import IsAuthor
 from .serializers import (FavoriteSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
                           RecipeSerializerGet, ShoppingSerializer,
-                          SubscribeSerializer, TagSerializer)
+                          SubscribeSerializer, TagSerializer, RecipeSmallSerializer)
 
 User = get_user_model()
 
@@ -154,3 +154,29 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     'errors': 'Рецепт отсутствует в списке покупок'
                     }, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False,
+            permission_classes=[permissions.IsAuthenticated, IsAuthor])
+    def download_shopping_cart(self, request):
+        list_recipe = Recipe.objects.filter(
+            shopping_recipe__user=self.request.user)
+        serializer = RecipeSerializerGet(
+            list_recipe, context={'request': request}, many=True)
+        list_ingredient = list()
+        for recipe in serializer.data:
+            for ingredient in recipe['ingredients']:
+                for i in list_ingredient:
+                    if ingredient['id'] == i['id']:
+                        i['amount'] += ingredient['amount']
+                if ingredient['id'] not in [x['id'] for x in list_ingredient]:
+                    list_ingredient.append(ingredient)
+        shopping_cart = list()
+        for ing in list_ingredient:
+            name = ing['name'].capitalize()
+            measure = ing['measurement_unit']
+            amount = ing['amount']
+            shopping_cart.append(
+                f"{name} ({measure}) - {amount}")
+            headers = {'Content-Type': 'application/txt',
+                       'Content-Disposition': 'attachment; filename="foo.txt"'}
+        return Response(shopping_cart, headers=headers, status=status.HTTP_200_OK)
