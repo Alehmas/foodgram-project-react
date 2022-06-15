@@ -4,6 +4,7 @@ from djoser.views import UserViewSet as DjoserViewSet
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination
 from rest_framework.response import Response
 from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
@@ -21,6 +22,7 @@ class UserViewSet(DjoserViewSet):
     """Вывод списка,создание и др для пользователей при работе с Djoser +
     создание, удаление и вывод списка подписчиков"""
     queryset = User.objects.all()
+    pagination_class = LimitOffsetPagination
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
@@ -80,6 +82,7 @@ class TagViewSet(mixins.ListModelMixin,
 class RecipeViewSet(viewsets.ModelViewSet):
     """Отображение рецепта(ов) при Get, Post, Patch, Del"""
     queryset = Recipe.objects.all()
+    pagination_class = PageNumberPagination
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
