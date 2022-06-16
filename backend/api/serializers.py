@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer
+#from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
@@ -85,11 +86,13 @@ class SubscribeSerializer(serializers.ModelSerializer):
         return False
 
     def to_representation(self, instance):
-        limit = int(self.context.get('request').query_params['recipes_limit'])
         representation = super(
             SubscribeSerializer, self).to_representation(instance)
-        if representation['recipes_count'] > limit:
-            representation['recipes'] = representation['recipes'][:limit]
+        query = self.context.get('request').query_params
+        if 'recipes_limit' in query:
+            limit = int(query['recipes_limit'])
+            if representation['recipes_count'] > limit:
+                representation['recipes'] = representation['recipes'][:limit]
         return representation
 
 
@@ -174,6 +177,7 @@ class RecipeSerializerGet(serializers.ModelSerializer):
     author = UserSerializer(required=False, read_only=True)
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
+    image = ImageConversion()
 
     class Meta:
         model = Recipe

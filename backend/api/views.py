@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserViewSet
-from django_filters.rest_framework import DjangoFilterBackend
+from django_filters.rest_framework import DjangoFilterBackend, OrderingFilter
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 
-from .permissions import IsAuthor
+from .permissions import IsAuthor, IsAdminOrAuthorOrReadOnly
 from .serializers import (FavoriteSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
                           RecipeSerializerGet, ShoppingSerializer,
@@ -23,7 +23,7 @@ class UserViewSet(DjoserViewSet):
     """Вывод списка,создание и др для пользователей при работе с Djoser +
     создание, удаление и вывод списка подписчиков"""
     queryset = User.objects.all()
-    pagination_class = LimitOffsetPagination
+    permission_classes = [IsAdminOrAuthorOrReadOnly]
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
@@ -61,11 +61,11 @@ class UserViewSet(DjoserViewSet):
         sub_user = User.objects.filter(following__user=self.request.user)
         page = self.paginate_queryset(sub_user)
         if page is not None:
-            serializer = serializer = SubscribeSerializer(
+            serializer = SubscribeSerializer(
                 page, context={'request': request}, many=True)
             return self.get_paginated_response(serializer.data)
         serializer = SubscribeSerializer(
-            page, context={'request': request}, many=True)
+            sub_user, context={'request': request}, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -78,6 +78,7 @@ class IngredientViewSet(mixins.ListModelMixin,
     serializer_class = IngredientSerializer
     filter_backends = (filters.SearchFilter,)
     search_fields = ('^name',)
+    pagination_class = None
 
 
 class TagViewSet(mixins.ListModelMixin,
@@ -86,12 +87,15 @@ class TagViewSet(mixins.ListModelMixin,
     """Вывод списка тегов или одного тега"""
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
+    pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     """Отображение рецепта(ов) при Get, Post, Patch, Del"""
     queryset = Recipe.objects.all()
     pagination_class = PageNumberPagination
+    permission_classes = [IsAdminOrAuthorOrReadOnly]
+    #filter_backends = (OrderingFilter,)
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -99,6 +103,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return RecipeSerializer
 
     def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
         serializer.save(author=self.request.user)
 
     def get_serializer_context(self):
