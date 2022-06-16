@@ -84,6 +84,14 @@ class SubscribeSerializer(serializers.ModelSerializer):
                 user=user.id, following=obj.id).exists()
         return False
 
+    def to_representation(self, instance):
+        limit = int(self.context.get('request').query_params['recipes_limit'])
+        representation = super(
+            SubscribeSerializer, self).to_representation(instance)
+        if representation['recipes_count'] > limit:
+            representation['recipes'] = representation['recipes'][:limit]
+        return representation
+
 
 class FollowSerializer(serializers.ModelSerializer):
     """Сериализация при создании подписчиков"""

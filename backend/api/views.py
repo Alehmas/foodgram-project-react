@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserViewSet
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -13,7 +14,7 @@ from .permissions import IsAuthor
 from .serializers import (FavoriteSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
                           RecipeSerializerGet, ShoppingSerializer,
-                          SubscribeSerializer, TagSerializer, RecipeSmallSerializer)
+                          SubscribeSerializer, TagSerializer)
 
 User = get_user_model()
 
@@ -58,8 +59,14 @@ class UserViewSet(DjoserViewSet):
             permission_classes=[permissions.IsAuthenticated, IsAuthor])
     def subscriptions(self, request):
         sub_user = User.objects.filter(following__user=self.request.user)
+        page = self.paginate_queryset(sub_user)
+        if page is not None:
+            serializer = serializer = SubscribeSerializer(
+                page, context={'request': request}, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = SubscribeSerializer(
-            sub_user, context={'request': request}, many=True)
+            page, context={'request': request}, many=True)
+        
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -69,6 +76,8 @@ class IngredientViewSet(mixins.ListModelMixin,
     """Вывод списка игредиентов или одного ингредиента"""
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('^name',)
 
 
 class TagViewSet(mixins.ListModelMixin,
@@ -178,8 +187,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             name = ing['name'].capitalize()
             measure = ing['measurement_unit']
             amount = ing['amount']
-            shopping_cart.append(
-                f"{name} ({measure}) - {amount}")
+            shopping_cart.append(f"{name} ({measure}) - {amount}")
             headers = {'Content-Type': 'application/txt',
                        'Content-Disposition': 'attachment; filename="foo.txt"'}
         return Response(shopping_cart, headers=headers, status=status.HTTP_200_OK)
