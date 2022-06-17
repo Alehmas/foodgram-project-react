@@ -1,17 +1,14 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserViewSet
-from django_filters.rest_framework import DjangoFilterBackend, OrderingFilter
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination
 from rest_framework.response import Response
 from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 
 from .filters import RecipeFilter
-from .permissions import IsAuthor, IsAdminOrAuthorOrReadOnly
+from .permissions import IsAdminOrAuthor, IsAdminOrAuthorOrReadOnly
 from .serializers import (FavoriteSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
                           RecipeSerializerGet, ShoppingSerializer,
@@ -57,7 +54,7 @@ class UserViewSet(DjoserViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False,
-            permission_classes=[permissions.IsAuthenticated, IsAuthor])
+            permission_classes=[permissions.IsAuthenticated, IsAdminOrAuthor])
     def subscriptions(self, request):
         sub_user = User.objects.filter(following__user=self.request.user)
         page = self.paginate_queryset(sub_user)
@@ -67,7 +64,6 @@ class UserViewSet(DjoserViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = SubscribeSerializer(
             sub_user, context={'request': request}, many=True)
-        
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -77,8 +73,6 @@ class IngredientViewSet(mixins.ListModelMixin,
     """Вывод списка игредиентов или одного ингредиента"""
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ('^name',)
     pagination_class = None
 
 
@@ -94,10 +88,14 @@ class TagViewSet(mixins.ListModelMixin,
 class RecipeViewSet(viewsets.ModelViewSet):
     """Отображение рецепта(ов) при Get, Post, Patch, Del"""
     queryset = Recipe.objects.all()
-    pagination_class = PageNumberPagination
     permission_classes = [IsAdminOrAuthorOrReadOnly]
-    filter_backends = (DjangoFilterBackend,)
+    filter_backends = (DjangoFilterBackend,
+                       filters.OrderingFilter,
+                       filters.SearchFilter)
     filterset_class = RecipeFilter
+    search_fields = ('^ingredients_name',)
+    ordering_fields = ('id',)
+    ordering = ('-id',)
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -117,7 +115,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return context
 
     @action(detail=True, methods=['post', 'delete'],
-            permission_classes=[permissions.IsAuthenticated, IsAuthor])
+            permission_classes=[permissions.IsAuthenticated])
     def favorite(self, request, pk=None):
         if request.method == 'POST':
             already_favorite = Favorite.objects.filter(
@@ -177,7 +175,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False,
-            permission_classes=[permissions.IsAuthenticated, IsAuthor])
+            permission_classes=[permissions.IsAuthenticated, IsAdminOrAuthor])
     def download_shopping_cart(self, request):
         list_recipe = Recipe.objects.filter(
             shopping_recipe__user=self.request.user)
@@ -197,6 +195,5 @@ class RecipeViewSet(viewsets.ModelViewSet):
             measure = ing['measurement_unit']
             amount = ing['amount']
             shopping_cart.append(f"{name} ({measure}) - {amount}")
-            headers = {'Content-Type': 'application/txt',
-                       'Content-Disposition': 'attachment; filename="foo.txt"'}
-        return Response(shopping_cart, headers=headers, status=status.HTTP_200_OK)
+            response = Response(shopping_cart,  content_type='text/plain')
+        return response

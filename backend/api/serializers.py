@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer
-#from drf_extra_fields.fields import Base64ImageField
+# from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
@@ -188,7 +188,7 @@ class RecipeSerializerGet(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         user = self.context.get('request').user
         favorite = Favorite.objects.filter(user=user.id, recipe=obj.id)
-        if user == obj.author or favorite.exists():
+        if favorite.exists():
             return True
         return False
 
@@ -216,7 +216,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         user = self.context.get('request').user
         favorite = Favorite.objects.filter(user=user.id, recipe=obj.id)
-        if user == obj.author or favorite.exists():
+        if favorite.exists():
             return True
         return False
 
