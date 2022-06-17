@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 
+from .filters import RecipeFilter
 from .permissions import IsAuthor, IsAdminOrAuthorOrReadOnly
 from .serializers import (FavoriteSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
@@ -95,7 +96,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     pagination_class = PageNumberPagination
     permission_classes = [IsAdminOrAuthorOrReadOnly]
-    #filter_backends = (OrderingFilter,)
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilter
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
