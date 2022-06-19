@@ -113,6 +113,7 @@ class FollowSerializer(serializers.ModelSerializer):
                 'Подписка на себя невозможна!')
         return data
 
+
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализация для ингредиентов"""
     class Meta:

@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 
-from .filters import RecipeFilter
+from .filters import IngredientFilter, RecipeFilter
 from .permissions import IsAdminOrAuthor, IsAdminOrAuthorOrReadOnly
 from .serializers import (FavoriteSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
@@ -96,9 +96,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrAuthorOrReadOnly]
     filter_backends = (DjangoFilterBackend,
                        filters.OrderingFilter,
-                       filters.SearchFilter)
+                       IngredientFilter)
     filterset_class = RecipeFilter
-    search_fields = ('^ingredients_name',)
+    search_fields = ('^name',)
     ordering_fields = ('id',)
     ordering = ('-id',)
 
