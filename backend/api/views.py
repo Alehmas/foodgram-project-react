@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import F
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserViewSet
 from rest_framework import filters, mixins, permissions, status, viewsets
@@ -22,6 +23,9 @@ class UserViewSet(DjoserViewSet):
     создание, удаление и вывод списка подписчиков"""
     queryset = User.objects.all()
     permission_classes = [IsAdminOrAuthorOrReadOnly]
+    filter_backends = (filters.OrderingFilter,)
+    ordering_fields = ('id',)
+    ordering = ('id',)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
@@ -33,15 +37,16 @@ class UserViewSet(DjoserViewSet):
                 return Response({
                     'errors': 'Вы уже подписаны на данного пользователя'
                     }, status=status.HTTP_400_BAD_REQUEST)
-            data = request.data.copy()
             following = int(self.kwargs['id'])
             user = self.request.user.id
-            data.update({'following': following, 'user': user})
             serializer = FollowSerializer(
-                data=data, context={'request': request})
+                data={'following': following, 'user': user},
+                context={'request': request})
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            response = SubscribeSerializer(
+                serializer.instance.following, context={'request': request})
+            return Response(response.data, status=status.HTTP_201_CREATED)
         if request.method == 'DELETE':
             follow = Follow.objects.filter(
                 user=self.request.user.id, following=int(self.kwargs['id']))
@@ -57,7 +62,7 @@ class UserViewSet(DjoserViewSet):
             permission_classes=[permissions.IsAuthenticated, IsAdminOrAuthor])
     def subscriptions(self, request):
         sub_user = User.objects.filter(following__user=self.request.user)
-        page = self.paginate_queryset(sub_user)
+        page = self.paginate_queryset(sub_user.order_by('id'))
         if page is not None:
             serializer = SubscribeSerializer(
                 page, context={'request': request}, many=True)
@@ -108,92 +113,73 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(author=self.request.user)
 
-    def get_serializer_context(self):
-        context = super(RecipeViewSet, self).get_serializer_context()
-        context.update(
-            {'request': self.request})
-        return context
+    def add_favorite_shopping(self, request, model, ser, err_text):
+        if request.method == 'POST':
+            already = model.objects.filter(
+                user=self.request.user.id, recipe=int(self.kwargs['pk']))
+            if already.exists():
+                return Response({
+                    'errors': f'Рецепт уже в {err_text}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            recipe = int(self.kwargs['pk'])
+            user = self.request.user.id
+            serializer = ser(
+                data={'recipe': recipe, 'user': user},
+                context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method == 'DELETE':
+            already = model.objects.filter(
+                user=self.request.user.id, recipe=int(self.kwargs['pk']))
+            if already.exists():
+                already.delete()
+            else:
+                return Response({
+                    'errors': f'Рецепт отсутствует в {err_text}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
     def favorite(self, request, pk=None):
-        if request.method == 'POST':
-            already_favorite = Favorite.objects.filter(
-                user=self.request.user.id, recipe=int(self.kwargs['pk']))
-            if already_favorite.exists():
-                return Response({
-                    'errors': 'Рецепт уже в избранном'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            data = request.data.copy()
-            recipe = int(self.kwargs['pk'])
-            user = self.request.user.id
-            data.update({'recipe': recipe, 'user': user})
-            serializer = FavoriteSerializer(
-                data=data, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        if request.method == 'DELETE':
-            favorite = Favorite.objects.filter(
-                user=self.request.user.id, recipe=int(self.kwargs['pk']))
-            if favorite.exists():
-                favorite.delete()
-            else:
-                return Response({
-                    'errors': 'Рецепт отсутствует в избранном'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self.add_favorite_shopping(
+            request, Favorite, FavoriteSerializer, 'избранном')
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
     def shopping_cart(self, request, pk=None):
-        if request.method == 'POST':
-            already_cart = Shopping.objects.filter(
-                user=self.request.user.id, recipe=int(self.kwargs['pk']))
-            if already_cart.exists():
-                return Response({
-                    'errors': 'Рецепт уже в списке покупок'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            data = request.data.copy()
-            recipe = int(self.kwargs['pk'])
-            user = self.request.user.id
-            data.update({'recipe': recipe, 'user': user})
-            serializer = ShoppingSerializer(
-                data=data, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        if request.method == 'DELETE':
-            favorite = Shopping.objects.filter(
-                user=self.request.user.id, recipe=int(self.kwargs['pk']))
-            if favorite.exists():
-                favorite.delete()
-            else:
-                return Response({
-                    'errors': 'Рецепт отсутствует в списке покупок'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self.add_favorite_shopping(
+            request, Shopping, ShoppingSerializer, 'в списке покупок')
 
     @action(detail=False,
             permission_classes=[permissions.IsAuthenticated, IsAdminOrAuthor])
     def download_shopping_cart(self, request):
-        list_recipe = Recipe.objects.filter(
-            shopping_recipe__user=self.request.user)
-        serializer = RecipeSerializerGet(
-            list_recipe, context={'request': request}, many=True)
+        data_ingredient = Recipe.objects.filter(
+            shopping_recipe__user=self.request.user).values(
+                ingredient_name=F(
+                    'recipe_to_ingredient__ingredient__name'
+                ),
+                ingredient_measurement_unit=F(
+                    'recipe_to_ingredient__ingredient__measurement_unit'
+                ),
+                amount=F(
+                    'recipe_to_ingredient__amount'
+                )
+            )
         list_ingredient = list()
-        for recipe in serializer.data:
-            for ingredient in recipe['ingredients']:
-                for i in list_ingredient:
-                    if ingredient['id'] == i['id']:
-                        i['amount'] += ingredient['amount']
-                if ingredient['id'] not in [x['id'] for x in list_ingredient]:
-                    list_ingredient.append(ingredient)
+        for ingredient in data_ingredient:
+            for i in list_ingredient:
+                if ingredient['ingredient_name'] == i['ingredient_name']:
+                    i['amount'] += ingredient['amount']
+            if (ingredient['ingredient_name'] not in
+                    [x['ingredient_name'] for x in list_ingredient]):
+                list_ingredient.append(ingredient)
         shopping_cart = list()
         for ing in list_ingredient:
-            name = ing['name'].capitalize()
-            measure = ing['measurement_unit']
+            name = ing['ingredient_name']
+            measure = ing['ingredient_measurement_unit']
             amount = ing['amount']
-            shopping_cart.append(f"{name} ({measure}) - {amount}")
+            shopping_cart.append(f"{name.capitalize()} ({measure}) - {amount}")
             response = Response(shopping_cart,  content_type='text/plain')
         return response
