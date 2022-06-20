@@ -1,13 +1,13 @@
 from django.contrib.auth import get_user_model
-from django.db.models import F
+from django.db.models import F, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserViewSet
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
 from recipes.models import Favorite, Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
-
 from .filters import IngredientFilter, RecipeFilter
 from .permissions import IsAdminOrAuthor, IsAdminOrAuthorOrReadOnly
 from .serializers import (FavoriteSerializer, FollowSerializer,
@@ -162,24 +162,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 ),
                 ingredient_measurement_unit=F(
                     'recipe_to_ingredient__ingredient__measurement_unit'
-                ),
-                amount=F(
-                    'recipe_to_ingredient__amount'
                 )
-            )
-        list_ingredient = list()
-        for ingredient in data_ingredient:
-            for i in list_ingredient:
-                if ingredient['ingredient_name'] == i['ingredient_name']:
-                    i['amount'] += ingredient['amount']
-            if (ingredient['ingredient_name'] not in
-                    [x['ingredient_name'] for x in list_ingredient]):
-                list_ingredient.append(ingredient)
+            ).annotate(total_amount=Sum('recipe_to_ingredient__amount'))
         shopping_cart = list()
-        for ing in list_ingredient:
+        for ing in data_ingredient:
             name = ing['ingredient_name']
             measure = ing['ingredient_measurement_unit']
-            amount = ing['amount']
+            amount = ing['total_amount']
             shopping_cart.append(f"{name.capitalize()} ({measure}) - {amount}")
             response = Response(shopping_cart,  content_type='text/plain')
         return response

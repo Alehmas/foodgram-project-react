@@ -8,7 +8,6 @@ from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 from recipes.models import (Favorite, Ingredient, IngredientAmount, Recipe,
                             Shopping, Tag)
 from users.models import Follow
-
 from .fields import ImageConversion
 
 User = get_user_model()
@@ -23,19 +22,18 @@ class UserSerializer(UserCreateSerializer):
         model = User
         fields = ('email', 'id', 'username', 'first_name',
                   'last_name', 'is_subscribed', 'password')
-        qs = User.objects.all()  # почему, оно используется дважды
         extra_kwargs = {
             'username': {
                 'validators': [
                     UniqueValidator(
-                        queryset=qs
+                        queryset=User.objects.all()
                     )
                 ]
             },
             'email': {
                 'validators': [
                     UniqueValidator(
-                        queryset=qs
+                        queryset=User.objects.all()
                     )
                 ]
             }
@@ -191,17 +189,17 @@ class RecipeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'Тэги должны быть уникальными')
             tags_list.append(tags_item)
-        ingredients = self.initial_data.get('ingredients')
+        ingredients = data['recipe_to_ingredient']
         if not ingredients:
             raise serializers.ValidationError({
-                'ingredients': 'Нужен хотя бы один ингридиент для рецепта'})
+                'ingredients': 'Нужен хотя бы один ингредиент для рецепта'})
         ingredient_list = []
         for ingredient_item in ingredients:
             ingredient = get_object_or_404(
-                Ingredient, id=ingredient_item['id'])
+                Ingredient, id=ingredient_item['ingredient']['id'])
             if ingredient in ingredient_list:
                 raise serializers.ValidationError(
-                    'Ингридиенты должны быть уникальными')
+                    'Ингредиенты должны быть уникальными')
             ingredient_list.append(ingredient)
             if int(ingredient_item['amount']) <= 0:
                 raise serializers.ValidationError({
@@ -211,16 +209,14 @@ class RecipeSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         user = self.context.get('request').user
         favorite = Favorite.objects.filter(user=user.id, recipe=obj.id)
-        if favorite.exists():
-            return True
-        return False
+        return favorite.exists()
 
     def get_is_in_shopping_cart(self, obj):
         user = self.context.get('request').user
         shopping = Shopping.objects.filter(user=user.id, recipe=obj.id)
         return shopping.exists()
 
-    def crate_ingredients(self, recipe, ingredients):
+    def create_ingredients(self, recipe, ingredients):
         IngredientAmount.objects.bulk_create([
             IngredientAmount(
                 recipe=recipe,
@@ -233,7 +229,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         ingredients = validated_data.pop('recipe_to_ingredient', {})
         tags = validated_data.pop('tags')
         recipe = Recipe.objects.create(**validated_data)
-        self.crate_ingredients(recipe, ingredients)
+        self.create_ingredients(recipe, ingredients)
         recipe.tags.set(tags)
         return recipe
 
@@ -241,7 +237,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         instance.tags.clear()
         instance.tags.set(validated_data.pop('tags'))
         IngredientAmount.objects.filter(recipe=instance).delete()
-        self.crate_ingredients(
+        self.create_ingredients(
             recipe=instance,
             ingredients=validated_data.pop('recipe_to_ingredient')
         )
