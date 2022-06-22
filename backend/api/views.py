@@ -79,6 +79,9 @@ class IngredientViewSet(mixins.ListModelMixin,
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
+    filter_backends = (IngredientFilter,)
+    filterset_class = RecipeFilter
+    search_fields = ('^name',)
 
 
 class TagViewSet(mixins.ListModelMixin,
@@ -95,10 +98,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     permission_classes = [IsAdminOrAuthorOrReadOnly]
     filter_backends = (DjangoFilterBackend,
-                       filters.OrderingFilter,
-                       IngredientFilter)
+                       filters.OrderingFilter)
     filterset_class = RecipeFilter
-    search_fields = ('^name',)
     ordering_fields = ('id',)
     ordering = ('-id',)
 
