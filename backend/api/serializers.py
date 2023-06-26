@@ -14,7 +14,8 @@ User = get_user_model()
 
 
 class UserSerializer(UserCreateSerializer):
-    """Сериализация для пользователей"""
+    """Serialization for users."""
+
     id = serializers.ReadOnlyField()
     is_subscribed = serializers.SerializerMethodField()
 
@@ -40,6 +41,7 @@ class UserSerializer(UserCreateSerializer):
         }
 
     def get_is_subscribed(self, obj):
+        """Check if there are subscriptions."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return Follow.objects.filter(
@@ -47,21 +49,27 @@ class UserSerializer(UserCreateSerializer):
         return False
 
     def validate_username(self, username):
+        """Forbids using the 'me' as a username."""
         if username.lower() == 'me':
             raise ValidationError('"me" is not valid username')
         return username
 
 
 class RecipeSmallSerializer(serializers.ModelSerializer):
-    """Сериализация поля рецепт в при получении подписчиков и
-    при добавлении в избранное"""
+    """Serialization of the recipe field.
+
+    - when getting subscribers
+    - when added to favorites.
+    """
+
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
 
 
 class SubscribeSerializer(serializers.ModelSerializer):
-    """Сериализация для списка подписчиков"""
+    """Serialization for list of subscribers."""
+
     recipes = RecipeSmallSerializer(
         many=True, read_only=True, source='recipe')
     recipes_count = serializers.SerializerMethodField()
@@ -73,9 +81,11 @@ class SubscribeSerializer(serializers.ModelSerializer):
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
     def get_recipes_count(self, obj):
+        """Return the number of recipes."""
         return obj.recipe.count()
 
     def get_is_subscribed(self, obj):
+        """Check if there are subscriptions."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return Follow.objects.filter(
@@ -83,6 +93,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
         return False
 
     def to_representation(self, instance):
+        """Show the number of subscriptions according to the limit."""
         representation = super(
             SubscribeSerializer, self).to_representation(instance)
         query = self.context.get('request').query_params
@@ -94,7 +105,8 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
 
 class FollowSerializer(serializers.ModelSerializer):
-    """Сериализация при создании подписчиков"""
+    """Serialize the creation of subscriptions."""
+
     class Meta:
         fields = ('user', 'following')
         model = Follow
@@ -106,6 +118,7 @@ class FollowSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
+        """Will restrict subscription creation to itself."""
         if self.context['request'].user == data['following']:
             raise serializers.ValidationError(
                 'Подписка на себя невозможна!')
@@ -113,14 +126,16 @@ class FollowSerializer(serializers.ModelSerializer):
 
 
 class IngredientSerializer(serializers.ModelSerializer):
-    """Сериализация для ингредиентов"""
+    """Serialization for ingredients."""
+
     class Meta:
         model = Ingredient
         fields = ('id', 'name', 'measurement_unit')
 
 
 class IngredientAmountSerializer(serializers.ModelSerializer):
-    """Сериализация поля игредиентов при получении рецепта(ов)"""
+    """Serialize the ingredients field when getting the recipe(s)."""
+
     id = serializers.IntegerField(source='ingredient.id')
     name = serializers.CharField(source='ingredient.name', read_only=True)
     measurement_unit = serializers.CharField(
@@ -133,14 +148,16 @@ class IngredientAmountSerializer(serializers.ModelSerializer):
 
 
 class TagSerializer(serializers.ModelSerializer):
-    """Сериализация для тегов"""
+    """Serialization for tags."""
+
     class Meta:
         model = Tag
         fields = ('id', 'name', 'color', 'slug')
 
 
 class RecipeSerializerGet(serializers.ModelSerializer):
-    """Сериализация получения рецепта(ов)"""
+    """Serialization of receipt of recipe(s)."""
+
     tags = TagSerializer(many=True)
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
@@ -156,18 +173,21 @@ class RecipeSerializerGet(serializers.ModelSerializer):
                   'cooking_time')
 
     def get_is_favorited(self, obj):
+        """Show the recipe has been added to favorites or not."""
         user = self.context.get('request').user
         favorite = Favorite.objects.filter(user=user.id, recipe=obj.id)
         return favorite.exists()
 
     def get_is_in_shopping_cart(self, obj):
+        """Show the recipe has been added to the shopping list or not."""
         user = self.context.get('request').user
         shopping = Shopping.objects.filter(user=user.id, recipe=obj.id)
         return shopping.exists()
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    """Сериализация для создания и обновления рецепта"""
+    """Serialize to create and update recipe."""
+
     author = UserSerializer(required=False, read_only=True)
     ingredients = IngredientAmountSerializer(
         many=True, source='recipe_to_ingredient')
@@ -182,6 +202,11 @@ class RecipeSerializer(serializers.ModelSerializer):
                   'cooking_time')
 
     def validate(self, data):
+        """Check recipe creation or update data.
+
+        Are the ingredients listed.
+        Are the tags and ingredients unique.
+        """
         tags = data['tags']
         tags_list = []
         for tags_item in tags:
@@ -207,16 +232,19 @@ class RecipeSerializer(serializers.ModelSerializer):
         return data
 
     def get_is_favorited(self, obj):
+        """Show the recipe has been added to favorites or not."""
         user = self.context.get('request').user
         favorite = Favorite.objects.filter(user=user.id, recipe=obj.id)
         return favorite.exists()
 
     def get_is_in_shopping_cart(self, obj):
+        """Show the recipe has been added to the shopping list or not."""
         user = self.context.get('request').user
         shopping = Shopping.objects.filter(user=user.id, recipe=obj.id)
         return shopping.exists()
 
     def create_ingredients(self, recipe, ingredients):
+        """Create a new ingredient."""
         IngredientAmount.objects.bulk_create([
             IngredientAmount(
                 recipe=recipe,
@@ -226,6 +254,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         ])
 
     def create(self, validated_data):
+        """Create a new recipe."""
         ingredients = validated_data.pop('recipe_to_ingredient', {})
         tags = validated_data.pop('tags')
         recipe = Recipe.objects.create(**validated_data)
@@ -234,6 +263,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
+        """Update recipe."""
         instance.tags.clear()
         instance.tags.set(validated_data.pop('tags'))
         IngredientAmount.objects.filter(recipe=instance).delete()
@@ -245,6 +275,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         return instance
 
     def to_representation(self, instance):
+        """Show a recipe with a list of tags."""
         representation = super(
             RecipeSerializer, self).to_representation(instance)
         representation['tags'] = TagSerializer(
@@ -253,12 +284,14 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
-    """Сериализация при добавления рецепта в избранные"""
+    """Serialization when adding/deleting a recipe to favorites."""
+
     class Meta:
         fields = ('user', 'recipe')
         model = Favorite
 
     def to_representation(self, instance):
+        """Show the recipe after adding/deleting to favorites."""
         request = self.context.get('request')
         recipe = get_object_or_404(Recipe, id=instance.recipe_id)
         representation = RecipeSmallSerializer(
@@ -267,12 +300,14 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 
 class ShoppingSerializer(serializers.ModelSerializer):
-    """Сериализация при добавления рецепта в избранные"""
+    """Serialization when adding a recipe to the shopping list."""
+
     class Meta:
         fields = ('user', 'recipe')
         model = Shopping
 
     def to_representation(self, instance):
+        """Show the recipe after adding/deleting to the shopping list."""
         request = self.context.get('request')
         recipe = get_object_or_404(Recipe, id=instance.recipe_id)
         representation = RecipeSmallSerializer(
