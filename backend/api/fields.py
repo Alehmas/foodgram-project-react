@@ -5,7 +5,8 @@ from rest_framework import serializers
 
 
 class ImageConversion(serializers.Field):
-    """Сериализация для поля изображения в рецепте"""
+    """Serialization for image field in recipe."""
+
     def to_representation(self, value):
         return value.url
 
@@ -17,5 +18,5 @@ class ImageConversion(serializers.Field):
             return ContentFile(base64.b64decode(imgstr), name=file_name)
         except ValueError:
             raise serializers.ValidationError(
-                'Картинка должна быть кодирована в base64'
+                'Image must be base64 encoded'
             )
