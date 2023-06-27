@@ -6,7 +6,9 @@ from recipes.models import Ingredient
 
 
 class Command(BaseCommand):
-    help = "Loads data from tags.csv"
+    """Command to automatically load a ingredient list."""
+
+    help = "Loads data from ingredients.csv"
 
     def handle(self, *args, **options):
         with open('./data/ingredients.csv', 'r', encoding='UTF-8') as f:

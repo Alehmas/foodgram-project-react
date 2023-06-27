@@ -19,8 +19,25 @@ User = get_user_model()
 
 
 class UserViewSet(DjoserViewSet):
-    """Вывод списка,создание и др для пользователей при работе с Djoser +
-    создание, удаление и вывод списка подписчиков"""
+    """Get, create user(s) or get, create or delete subscription(s).
+
+    list:
+    Get a list of all users.
+    Get a list of user's subscriptions.
+
+    create:
+    Register user.
+    Change users password.
+    Create a subscription to another user.
+
+    retrieve:
+    Get a user by id.
+    Get your account information.
+
+    destroy:
+    Remove a subscription to another user.
+    """
+
     queryset = User.objects.all()
     permission_classes = [IsAdminOrAuthorOrReadOnly]
     filter_backends = (filters.OrderingFilter,)
@@ -30,12 +47,13 @@ class UserViewSet(DjoserViewSet):
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
     def subscribe(self, request, id=None):
+        """Create or delete a subscription to another user."""
         if request.method == 'POST':
             already_follow = Follow.objects.filter(
                 user=self.request.user.id, following=int(self.kwargs['id']))
             if already_follow.exists():
                 return Response({
-                    'errors': 'Вы уже подписаны на данного пользователя'
+                    'errors': 'You are already following this user'
                     }, status=status.HTTP_400_BAD_REQUEST)
             following = int(self.kwargs['id'])
             user = self.request.user.id
@@ -54,13 +72,14 @@ class UserViewSet(DjoserViewSet):
                 follow.delete()
             else:
                 return Response({
-                    'errors': 'Данная подписка отсутвует'
+                    'errors': 'This subscription is missing'
                     }, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False,
             permission_classes=[permissions.IsAuthenticated, IsAdminOrAuthor])
     def subscriptions(self, request):
+        """Get the users that the current user is following."""
         sub_user = User.objects.filter(following__user=self.request.user)
         page = self.paginate_queryset(sub_user.order_by('id'))
         if page is not None:
@@ -75,7 +94,15 @@ class UserViewSet(DjoserViewSet):
 class IngredientViewSet(mixins.ListModelMixin,
                         mixins.RetrieveModelMixin,
                         viewsets.GenericViewSet):
-    """Вывод списка игредиентов или одного ингредиента"""
+    """Displaying a list of ingredients or a single ingredient.
+
+    list:
+    Get a list of ingredients.
+
+    retrieve:
+    Get a ingredient by id.
+    """
+
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
@@ -87,14 +114,39 @@ class IngredientViewSet(mixins.ListModelMixin,
 class TagViewSet(mixins.ListModelMixin,
                  mixins.RetrieveModelMixin,
                  viewsets.GenericViewSet):
-    """Вывод списка тегов или одного тега"""
+    """Displaying a list of tags or a single tag.
+
+    list:
+    Get a list of tags.
+
+    retrieve:
+    Get a tag by id.
+    """
+
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    """Отображение рецепта(ов) при Get, Post, Patch, Del"""
+    """Recipe(s) display on Get, Post, Patch, Del.
+
+    list:
+    Get a list of recipes.
+
+    create:
+    Create a recipe.
+
+    retrieve:
+    Get a recipe by id.
+
+    partial_update:
+    Patch a recipe.
+
+    destroy:
+    Remove a recipe by id.
+    """
+
     queryset = Recipe.objects.all()
     permission_classes = [IsAdminOrAuthorOrReadOnly]
     filter_backends = (DjangoFilterBackend,
@@ -115,12 +167,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     def add_favorite_shopping(self, request, model, ser, err_text):
+        """Add/remove a recipe to/from the favorites/shopping list."""
         if request.method == 'POST':
             already = model.objects.filter(
                 user=self.request.user.id, recipe=int(self.kwargs['pk']))
             if already.exists():
                 return Response({
-                    'errors': f'Рецепт уже в {err_text}'
+                    'errors': f'Recipe already in {err_text}'
                     }, status=status.HTTP_400_BAD_REQUEST)
             recipe = int(self.kwargs['pk'])
             user = self.request.user.id
@@ -137,25 +190,28 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 already.delete()
             else:
                 return Response({
-                    'errors': f'Рецепт отсутствует в {err_text}'
+                    'errors': f'Recipe is not on the {err_text}'
                     }, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
     def favorite(self, request, pk=None):
+        """Add/remove a recipe to/from the favorites list."""
         return self.add_favorite_shopping(
             request, Favorite, FavoriteSerializer, 'избранном')
 
     @action(detail=True, methods=['post', 'delete'],
             permission_classes=[permissions.IsAuthenticated])
     def shopping_cart(self, request, pk=None):
+        """Add/remove a recipe to/from the shopping list."""
         return self.add_favorite_shopping(
             request, Shopping, ShoppingSerializer, 'в списке покупок')
 
     @action(detail=False,
             permission_classes=[permissions.IsAuthenticated, IsAdminOrAuthor])
     def download_shopping_cart(self, request):
+        """Return the shopping list."""
         data_ingredient = Recipe.objects.filter(
             shopping_recipe__user=self.request.user).values(
                 ingredient_name=F(

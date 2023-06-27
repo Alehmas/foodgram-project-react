@@ -6,6 +6,8 @@ from recipes.models import Tag
 
 
 class Command(BaseCommand):
+    """Command to automatically load a tag list."""
+
     help = "Loads data from tags.csv"
 
     def handle(self, *args, **options):
