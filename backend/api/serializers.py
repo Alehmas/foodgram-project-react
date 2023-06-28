@@ -8,6 +8,7 @@ from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 from recipes.models import (Favorite, Ingredient, IngredientAmount, Recipe,
                             Shopping, Tag)
 from users.models import Follow
+
 from .fields import ImageConversion
 
 User = get_user_model()
@@ -41,7 +42,7 @@ class UserSerializer(UserCreateSerializer):
         }
 
     def get_is_subscribed(self, obj):
-        """Check if there are subscriptions."""
+        """Return the subscription status."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return Follow.objects.filter(
@@ -85,7 +86,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
         return obj.recipe.count()
 
     def get_is_subscribed(self, obj):
-        """Check if there are subscriptions."""
+        """Return the subscription status."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return Follow.objects.filter(
