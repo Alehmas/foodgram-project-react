@@ -14,11 +14,11 @@ const SignIn = ({ onSignIn }) => {
     {authContext && <Redirect to='/recipes' />}
     <Container>
       <MetaTags>
-        <title>Войти на сайт</title>
-        <meta name="description" content="Продуктовый помощник - Войти на сайт" />
+        <title>Login</title>
+        <meta name="description" content="Product assistant - Login" />
         <meta property="og:title" content="Войти на сайт" />
       </MetaTags>
-      <Title title='Войти на сайт' />
+      <Title title='Login' />
       <Form
         className={styles.form}
         onSubmit={e => {
@@ -28,13 +28,13 @@ const SignIn = ({ onSignIn }) => {
       >
         <Input
           required
-          label='Электронная почта'
+          label='Email'
           name='email'
           onChange={handleChange}
         />
         <Input
           required
-          label='Пароль'
+          label='Password'
           type='password'
           name='password'
           onChange={handleChange}
@@ -45,7 +45,7 @@ const SignIn = ({ onSignIn }) => {
           type='submit'
           className={styles.button}
         >
-          Войти
+          Login
         </Button>
       </Form>
     </Container>

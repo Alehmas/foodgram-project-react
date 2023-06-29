@@ -35,4 +35,6 @@ class RecipeFilter(filters.FilterSet):
 
 
 class IngredientFilter(filter.SearchFilter):
+    """Filter to search for ingredients."""
+
     search_param = 'name'

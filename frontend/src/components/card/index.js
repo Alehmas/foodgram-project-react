@@ -4,7 +4,7 @@ import { useState, useContext } from 'react'
 import { AuthContext } from '../../contexts'
 
 const Card = ({
-  name = 'Без названия',
+  name = 'Untitled',
   id,
   image,
   is_favorited,
