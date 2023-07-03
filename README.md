@@ -171,4 +171,4 @@ docker-compose exec web python manage.py add_ingredients
 You can see the full API specification in the running project at http://localhost/api/docs/.
 
 ## Authors
-- [Aleh Maslau](https://github.com/Oleg-2006)
+- [Aleh Maslau](https://github.com/Alehmas)
