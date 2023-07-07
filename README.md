@@ -84,7 +84,7 @@ The project runs in four docker-compose containers:
 ### Clone the repository
 Clone the repository to your local machine:
 ```bash
-git@github.com:Oleg-2006/foodgram-project-react.git
+git clone git@github.com:Alehmas/foodgram-project-react.git
 ```
 
 ### Launching and working with the project
